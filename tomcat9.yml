@@ -1,0 +1,81 @@
+---
+ - name: Tomcat Setup for Prod env
+   hosts: all
+   vars_files:
+     - pass.yml
+   become: true
+   tasks:
+     - name: Creating User {{ user }} for tomcat.
+       user:
+         name: "{{ user }}"
+         group: root
+         uid: 1022
+     - name: Craeting Dircetory {{ dir }} for tomcat.
+       file:
+         name: "{{ dir }}"
+         path: /home/ansadmin/
+         owner: root
+         state: directory
+
+     - name: Installing TomCat Dependencise.
+       apt:
+         name: '{{ item }}'
+         state: present
+       loop:
+         - openjdk-8-jdk
+         - tar
+
+     - name: Download tomcat from Site
+       ansible.builtin.get_url:
+         url: https://dlcdn.apache.org/tomcat/tomcat-9/v9.0.73/bin/apache-tomcat-9.0.73.tar.gz
+         dest: /home/ansadmin/{{ dir }}
+      
+     - name: Unarchive the ZIP file.
+       unarchive:
+         src: /home/ansadmin/{{ dir }}/apache-tomcat-9.0.73.tar.gz
+         dest: /home/ansadmin/tomcat9
+         remote_src: yes
+
+
+     - name: Copy WAR file to server.
+       copy:
+         src: /home/mohitverma7862/ansible/gamutgurus.war
+         dest: /home/ansadmin/{{ dir }}/apache-tomcat-9.0.73/webapps
+         owner: "{{ user }}"
+
+     - name: Editing Port
+       shell: sed -i 's/port="8080"/port="{{ port }}"/' server.xml
+       args:
+         chdir: /home/ansadmin/tomcat9/apache-tomcat-9.0.73/conf/
+
+     - name: editting user for tomcat.
+       shell: sed -i '38d' tomcat-users.xml
+       args:
+         chdir: /home/ansadmin/tomcat9/apache-tomcat-9.0.73/conf/
+
+     - name: editting user for tomcat.
+       shell: sed -i '40d' tomcat-users.xml
+       args:
+         chdir: /home/ansadmin/tomcat9/apache-tomcat-9.0.73/conf/
+  
+     - name: Editing Password for Tomcat root user.
+       shell: sed -i 's/password="<must-be-changed>"/password="{{ pass }}"/' tomcat-users.xml
+       args:
+         chdir: /home/ansadmin/tomcat9/apache-tomcat-9.0.73/conf/
+     - name: Setting Up Manger GUI for Tomcat9.
+       shell: sed -i 's/allow=.*/allow=".*"/' context.xml
+       args:
+         chdir: /home/ansadmin/tomcat9/apache-tomcat-9.0.73/webapps/manager/META-INF
+           
+     - name: Setting Up Hos-Manger GUI for Tomcat9.
+       shell: sed -i 's/allow=.*/allow=".*"/' context.xml
+       args:
+         chdir: /home/ansadmin/tomcat9/apache-tomcat-9.0.73/webapps/host-manager/META-INF
+      
+     - name: Starting tomcat service.
+       shell: nohup ./startup.sh
+       args:
+         chdir: /home/ansadmin/tomcat9/apache-tomcat-9.0.73/bin
+
+
+
